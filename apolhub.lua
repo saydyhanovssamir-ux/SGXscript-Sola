@@ -1,128 +1,4 @@
--- ====================================================================
---                            「 Apol.hub 」                 
--- ====================================================================
-
-local UIS = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LP = Players.LocalPlayer
-local Cam = workspace.CurrentCamera
-
--- Состояние систем
-local hubVisible = true
-local specP = nil
-local espEnabled = false
-local selectedTarget = nil
-local highlights = {}
-local targetHighlight = nil
-
--- Состояние Призрака
-local ghostActive = false
-local ghostSpeed = 30
-local ghostPart = nil
-local originalCFrame = nil
-
-local function getChar()
-    local char = LP.Character
-    return char, char and char:FindFirstChild("HumanoidRootPart"), char and char:FindFirstChild("Humanoid")
-end
-
-local function getUIContainer()
-    if gethui then return gethui() end
-    return LP:WaitForChild("PlayerGui")
-end
-
--- Удаляем старые копии интерфейсов Apol.hub или связанных модулей
-for _, oldUi in ipairs(getUIContainer():GetChildren()) do
-    if oldUi.Name == "ApolHubGUI" or oldUi.Name == "NexusTotalEclipseHub" or oldUi.Name == "NexusGhostCore" or oldUi.Name == "Xeno_TargetESP_Fix" then
-        oldUi:Destroy()
-    end
-end
-
--- ==================== ИНТЕРФЕЙС ГЛАВНОГО ХАБА ====================
-local UI = Instance.new("ScreenGui", getUIContainer())
-UI.Name = "ApolHubGUI"
-UI.ResetOnSpawn = false
-
-local Main = Instance.new("Frame", UI)
-Main.Size, Main.Position, Main.BackgroundColor3 = UDim2.new(0, 520, 0, 340), UDim2.new(0.5, -260, 0.5, -170), Color3.fromRGB(12, 12, 12)
-Main.Active, Main.Draggable = true, true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
-local MainStroke = Instance.new("UIStroke", Main) MainStroke.Color, MainStroke.Thickness = Color3.fromRGB(255, 30, 30), 1.5
-
--- Шапка
-local Header = Instance.new("Frame", Main)
-Header.Size, Header.BackgroundTransparency = UDim2.new(1, 0, 0, 40), 1
-local Title = Instance.new("TextLabel", Header)
-Title.Size, Title.Position, Title.BackgroundTransparency = UDim2.new(1, -50, 1, 0), UDim2.new(0, 15, 0, 0), 1
-Title.TextColor3, Title.Text, Title.Font, Title.TextSize, Title.TextXAlignment = Color3.fromRGB(255, 30, 30), "「 Apol.hub 」", Enum.Font.GothamBold, 15, Enum.TextXAlignment.Left
-
-local Close = Instance.new("TextButton", Header)
-Close.Size, Close.Position, Close.BackgroundColor3 = UDim2.new(0, 26, 0, 26), UDim2.new(1, -34, 0, 7), Color3.fromRGB(35, 10, 10)
-Close.TextColor3, Close.Text, Close.Font, Close.TextSize = Color3.fromRGB(255, 50, 50), "✕", Enum.Font.GothamBold, 12
-Instance.new("UICorner", Close).CornerRadius = UDim.new(0, 6)
-local CloseStroke = Instance.new("UIStroke", Close) CloseStroke.Color = Color3.fromRGB(255, 30, 30)
-Close.MouseButton1Click:Connect(function() Main.Visible = false hubVisible = false end)
-
--- Боковая панель навигации (Вкладки)
-local Sidebar = Instance.new("Frame", Main)
-Sidebar.Size, Sidebar.Position, Sidebar.BackgroundColor3 = UDim2.new(0, 140, 1, -45), UDim2.new(0, 10, 0, 40), Color3.fromRGB(18, 15, 15)
-Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
-local SideLayout = Instance.new("UIListLayout", Sidebar) SideLayout.Padding, SideLayout.HorizontalAlignment = UDim.new(0, 5), Enum.HorizontalAlignment.Center
-
--- Контейнер для страниц
-local Container = Instance.new("Frame", Main)
-Container.Size, Container.Position, Container.BackgroundColor3 = UDim2.new(1, -165, 1, -45), UDim2.new(0, 155, 0, 40), Color3.fromRGB(8, 8, 8)
-Instance.new("UICorner", Container).CornerRadius = UDim.new(0, 8)
-
-local pages = {}
-local function createPage(name)
-    local p = Instance.new("ScrollingFrame", Container)
-    p.Size, p.BackgroundTransparency, p.BorderSizePixel, p.Visible = UDim2.new(1, -10, 1, -10), 1, 0, false
-    p.Position = UDim2.new(0, 5, 0, 5)
-    p.ScrollBarThickness, p.ScrollBarImageColor3 = 3, Color3.fromRGB(255, 30, 30)
-    local lay = Instance.new("UIListLayout", p) lay.Padding = UDim.new(0, 6)
-    pages[name] = p
-    return p
-end
-
-local scriptsPage = createPage("Scripts")
-local observerPage = createPage("Observer")
-local espPage = createPage("ESP")
-local ghostPage = createPage("Ghost")
-
--- Переключение вкладок
-local function showPage(name)
-    for k, v in pairs(pages) do v.Visible = (k == name) end
-    for _, btn in ipairs(Sidebar:GetChildren()) do
-        if btn:IsA("TextButton") then
-            if btn.Name == name .. "Tab" then
-                btn.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
-                btn.TextColor3 = Color3.fromRGB(12, 12, 12)
-            else
-                btn.BackgroundColor3 = Color3.fromRGB(28, 22, 22)
-                btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-            end
-        end
-    end
-end
-
-local function createTab(name, label)
-    local btn = Instance.new("TextButton", Sidebar)
-    btn.Name = name .. "Tab"
-    btn.Size, btn.BackgroundColor3, btn.TextColor3 = UDim2.new(0, 125, 0, 32), Color3.fromRGB(28, 22, 22), Color3.fromRGB(200, 200, 200)
-    btn.Text, btn.Font, btn.TextSize = label, Enum.Font.GothamBold, 11
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    btn.MouseButton1Click:Connect(function() showPage(name) end)
-end
-
-createTab("Scripts", "🚀 СКРИПТЫ")
-createTab("Observer", "👁 НАБЛЮДЕНИЕ")
-createTab("ESP", "🎯 ПОДСВЕТКА ESP")
-createTab("Ghost", "👻 ПРИЗРАК PROXY")
-showPage("Scripts")
-
--- Функция для создания кнопок скриптов
+-- ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ СКРИПТОВ (ВСТАВИТЬ В ЧАСТЬ 1)
 local function createScriptLoader(parent, title, desc, loadStringStr)
     local f = Instance.new("Frame", parent)
     f.Size, f.BackgroundColor3 = UDim2.new(1, -6, 0, 42), Color3.fromRGB(24, 20, 20)
@@ -141,11 +17,69 @@ local function createScriptLoader(parent, title, desc, loadStringStr)
     b.MouseButton1Click:Connect(function()
         b.Text = "ЗАГРУЗКА..."
         task.spawn(function()
-            pcall(function() loadstring(game:HttpGet(loadStringStr))() end)
-            b.Text = "АКТИВЕН"
-            b.BackgroundColor3 = Color3.fromRGB(20, 50, 20)
-            b.TextColor3 = Color3.fromRGB(50, 255, 50)
-            bStroke.Color = Color3.fromRGB(30, 255, 30)
+            local success, rawCode = pcall(function() 
+                return game:HttpGet(loadStringStr) 
+            end)
+            
+            if success and rawCode then
+                b.Text = "АКТИВЕН"
+                b.BackgroundColor3 = Color3.fromRGB(20, 50, 20)
+                b.TextColor3 = Color3.fromRGB(50, 255, 50)
+                bStroke.Color = Color3.fromRGB(30, 255, 30)
+                
+                -- Выполняем скрипт без изоляции pcall, чтобы он имел полный доступ к эксплоиту
+                local func = loadstring(rawCode)
+                if func then 
+                    func() 
+                end
+            else
+                b.Text = "ОШИБКА HTTP"
+                b.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+                b.TextColor3 = Color3.fromRGB(255, 100, 100)
+                warn("Apol.hub: Не удалось скачать скрипт " .. title)
+            end
+        end)
+    end)
+end
+-- ==================== ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ (БЕЗ БЛОКИРОВОК) ====================
+local function createScriptLoader(parent, title, desc, loadStringStr)
+    local f = Instance.new("Frame", parent)
+    f.Size, f.BackgroundColor3 = UDim2.new(1, -6, 0, 42), Color3.fromRGB(24, 20, 20)
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+
+    local lbl = Instance.new("TextLabel", f)
+    lbl.Size, lbl.Position, lbl.BackgroundTransparency = UDim2.new(1, -110, 1, 0), UDim2.new(0, 10, 0, 0), 1
+    lbl.TextColor3, lbl.Text, lbl.Font, lbl.TextSize, lbl.TextXAlignment = Color3.fromRGB(255, 255, 255), title .. " \n" .. desc, Enum.Font.Gotham, 11, Enum.TextXAlignment.Left
+
+    local b = Instance.new("TextButton", f)
+    b.Size, b.Position, b.BackgroundColor3, b.TextColor3 = UDim2.new(0, 90, 0, 26), UDim2.new(1, -100, 0, 8), Color3.fromRGB(45, 15, 15), Color3.fromRGB(255, 50, 50)
+    b.Text, b.Font, b.TextSize = "ЗАПУСТИТЬ", Enum.Font.GothamBold, 10
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+    local bStroke = Instance.new("UIStroke", b) bStroke.Color = Color3.fromRGB(255, 30, 30)
+    
+    b.MouseButton1Click:Connect(function()
+        b.Text = "ЗАГРУЗКА..."
+        task.spawn(function()
+            local success, rawCode = pcall(function() 
+                return game:HttpGet(loadStringStr) 
+            end)
+            
+            if success and rawCode then
+                b.Text = "АКТИВЕН"
+                b.BackgroundColor3 = Color3.fromRGB(20, 50, 20)
+                b.TextColor3 = Color3.fromRGB(50, 255, 50)
+                bStroke.Color = Color3.fromRGB(30, 255, 30)
+                
+                local func = loadstring(rawCode)
+                if func then 
+                    func() 
+                end
+            else
+                b.Text = "ОШИБКА HTTP"
+                b.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+                b.TextColor3 = Color3.fromRGB(255, 100, 100)
+                warn("Apol.hub: Не удалось скачать скрипт " .. title)
+            end
         end)
     end)
 end
@@ -157,6 +91,7 @@ createScriptLoader(scriptsPage, "🦑 Squid Game X", "Чит-модуль для
 createScriptLoader(scriptsPage, "🌌 Кастомные Шейдеры", "Улучшение графики и пост-обработки", "https://githubusercontent.com")
 createScriptLoader(scriptsPage, "🛠 Infinite Yield", "Универсальный админ-скрипт", "https://githubusercontent.com")
 scriptsPage.CanvasSize = UDim2.new(0, 0, 0, 240)
+
 -- ==================== СТРАНИЦА 2: OBSERVER (НАБЛЮДЕНИЕ) ====================
 local function stopSpec()
     specP = nil
@@ -221,7 +156,6 @@ local function buildObserver()
 end
 Players.PlayerAdded:Connect(buildObserver) Players.PlayerRemoving:Connect(buildObserver)
 buildObserver()
-
 -- ==================== СТРАНИЦА 3: TARGET ESP & TEAM ESP ====================
 local EspMasterBtn = Instance.new("TextButton", espPage)
 EspMasterBtn.Size, EspMasterBtn.BackgroundColor3, EspMasterBtn.TextColor3 = UDim2.new(1, -6, 0, 35), Color3.fromRGB(55, 15, 15), Color3.fromRGB(255, 75, 75)
@@ -289,6 +223,16 @@ end)
 
 Players.PlayerAdded:Connect(rebuildEspList) Players.PlayerRemoving:Connect(rebuildEspList)
 rebuildEspList()
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function checkWall(targetPlayer)
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return false end
+    rayParams.FilterDescendantsInstances = {LP.Character, targetPlayer.Character}
+    local res = workspace:Raycast(Cam.CFrame.Position, targetPlayer.Character.HumanoidRootPart.Position - Cam.CFrame.Position, rayParams)
+    return res == nil
+end
 -- ==================== СТРАНИЦА 4: NEXUS GHOST PROXY (ПРИЗРАК) ====================
 local GhostMasterBtn = Instance.new("TextButton", ghostPage)
 GhostMasterBtn.Size, GhostMasterBtn.BackgroundColor3, GhostMasterBtn.TextColor3 = UDim2.new(1, -6, 0, 35), Color3.fromRGB(55, 15, 15), Color3.fromRGB(255, 75, 75)
@@ -406,14 +350,14 @@ end
 -- ==================== СЕРВИСНЫЕ ЦИКЛЫ И БИНДЫ ====================
 UIS.InputBegan:Connect(function(input, proc)
     if proc then return end
-    -- Скрытие меню Apol.hub на Insert или Правый Shift
+    -- Открытие/скрытие Apol.hub на Insert или Правый Shift
     if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightShift then
         hubVisible = not hubVisible
         Main.Visible = hubVisible
-    -- Клавиша L для сброса камеры наблюдения
+    -- Клавиша L для сброса наблюдения (камера возвращается к персонажу)
     elseif input.KeyCode == Enum.KeyCode.L or input.KeyCode == Enum.KeyCode.Return then
         if specP then stopSpec() buildObserver() end
-    -- Кнопка B для быстрого переключения ESP
+    -- Клавиша B для быстрого переключения командного ESP
     elseif input.KeyCode == Enum.KeyCode.B then
         espEnabled = not espEnabled
         updateEspUI()
@@ -425,7 +369,6 @@ UIS.InputBegan:Connect(function(input, proc)
 end)
 
 RunService.RenderStepped:Connect(function()
-    -- Полёт Призрака
     if ghostActive and ghostPart then
         local char, hrp, _ = getChar()
         if hrp then
@@ -446,7 +389,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Бесконечный цикл синхронизации систем
 task.spawn(function()
     while true do
         task.wait(0.03)
@@ -475,4 +417,4 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 fullRebuild()
-print("[Apol.hub]: Успешно собран в красно-черном стиле и готов к работе!")
+print("[Apol.hub]: Полная сборка успешно завершена. Меню готово к использованию!")
